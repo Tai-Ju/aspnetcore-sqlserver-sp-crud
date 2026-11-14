@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProductApi CRUD Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: clinical, precise — a working admin tool, not a brochure
+   IDEA: a departure board — every API call posts a line: HTTP route → the exact EXEC it ran
+   PICTURE: the live product table + the call log beside it, showing request → SP in real time
+   COLOUR and TYPE: white / black / signal red, one grey; Archivo wide for numerals, Noto Sans TC body
+   LAYOUT: thick top rule, title left, table (main) and log (side) in two columns, stacks under 900px */
+:root{color-scheme:light dark;
+  --bg:light-dark(#fff,#0e0e0e);--ink:light-dark(#111,#f2f2f2);--mute:light-dark(#6b6b6b,#9a9a9a);
+  --line:light-dark(#e3e3e3,#2a2a2a);--soft:light-dark(#f5f5f5,#171717);--red:#e4002b;--ok:light-dark(#0a7a3d,#4cc985)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Noto Sans TC","Archivo",system-ui,sans-serif;overflow-x:clip}
+.num,.mono{font-family:"Archivo",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+header{border-top:10px solid var(--ink);padding:clamp(20px,3vw,40px) max(5vw,16px) 12px;display:flex;flex-wrap:wrap;gap:12px 32px;align-items:flex-end;justify-content:space-between}
+h1{margin:0;font:800 clamp(30px,4.6vw,48px)/1.05 "Archivo",sans-serif;font-stretch:112%;letter-spacing:-.01em;text-wrap:balance}
+h1 small{display:block;font:500 16px/1.4 "Noto Sans TC",sans-serif;color:var(--mute);margin-top:8px;letter-spacing:0}
+.mode{display:inline-flex;align-items:center;gap:8px;font-size:14px;padding:6px 12px;border:1.5px solid var(--ink);border-radius:999px;white-space:nowrap}
+.mode i{width:9px;height:9px;border-radius:50%;background:var(--red)}
+.mode.live i{background:var(--ok)}
+main{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:clamp(20px,3vw,40px);padding:12px max(5vw,16px) 48px;max-width:1320px}
+h2{font:700 15px/1.3 "Archivo",sans-serif;font-stretch:112%;margin:0 0 10px;padding-top:10px;border-top:3px solid var(--ink);display:flex;justify-content:space-between;gap:12px}
+h2 span{font-weight:500;color:var(--mute)}
+form{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) auto;gap:10px;align-items:end;padding:14px;background:var(--soft);margin-bottom:16px}
+label{display:grid;gap:4px;font-size:13px;color:var(--mute)}
+input{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);padding:9px 10px;min-height:44px;border-radius:0}
+input:focus-visible,button:focus-visible{outline:3px solid var(--red);outline-offset:1px}
+button{font:600 15px "Noto Sans TC",sans-serif;min-height:44px;padding:0 16px;border:1.5px solid var(--ink);background:var(--ink);color:var(--bg);cursor:pointer;white-space:nowrap}
+button.ghost{background:transparent;color:var(--ink)}
+button.del{background:transparent;color:var(--red);border-color:transparent;padding:0 10px}
+button.edit{background:transparent;color:var(--ink);border-color:transparent;padding:0 10px}
+.btns{display:flex;gap:8px}
+.tools{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.tools input{flex:1 1 200px}
+table{width:100%;border-collapse:collapse}
+th{font-size:13px;font-weight:500;color:var(--mute);text-align:left;padding:8px 10px;border-bottom:1.5px solid var(--ink)}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.r,th.r{text-align:right;white-space:nowrap}
+td.id{font-family:"Archivo",sans-serif;font-weight:800;font-size:22px;font-stretch:112%;width:56px}
+tr.flash td{animation:fl 1.2s ease-out}
+@keyframes fl{from{background:color-mix(in srgb,var(--red) 16%,transparent)}to{background:transparent}}
+.low{color:var(--red);font-weight:600}
+.sub{display:block;font-size:13px;color:var(--mute)}
+.empty{padding:32px 10px;color:var(--mute);text-align:center}
+.log{list-style:none;margin:0;padding:0;max-height:620px;overflow:auto}
+.log li{padding:10px 0;border-bottom:1px solid var(--line);display:grid;gap:4px}
+.log .top{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.verb{font:800 13px "Archivo",sans-serif;font-stretch:112%;min-width:58px}
+.verb.POST{color:var(--ok)}.verb.PUT{color:#b26b00}.verb.DELETE{color:var(--red)}
+.st{margin-left:auto;font:600 13px "Archivo",sans-serif;color:var(--mute);white-space:nowrap}
+pre{margin:0;font:13px/1.5 ui-monospace,"Cascadia Code",Consolas,monospace;background:var(--soft);padding:8px 10px;overflow-x:auto;white-space:pre}
+.note{font-size:13px;color:var(--mute);margin:12px 0 0}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+@media(max-width:900px){main{grid-template-columns:minmax(0,1fr)}.log{max-height:none}}
+@media(max-width:600px){form{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}form label:first-child,.btns{grid-column:1/-1}
+  .stack thead{display:none}.stack tr{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 12px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .stack td{border:0;padding:2px 0}.stack td.id{grid-row:span 4}.stack td.r{text-align:left}
+  .stack td[data-l]::before{content:attr(data-l)"　";color:var(--mute);font-size:13px}}
+@media(prefers-reduced-motion:reduce){tr.flash td{animation:none}.toast{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>商品 CRUD<small>ASP.NET Core Web API → dbo.usp_Products_CRUD</small></h1>
+  <span class="mode" id="mode"><i></i><span id="modeTxt">偵測後端中…</span></span>
+</header>
+
+<main>
+  <section>
+    <h2>商品資料表 <span id="count"></span></h2>
+    <form id="f" autocomplete="off">
+      <label>品名<input id="fName" required maxlength="100" placeholder="例如：N95 口罩"></label>
+      <label>單價<input id="fPrice" type="number" min="0" step="0.01" required value="0" class="num"></label>
+      <label>庫存<input id="fStock" type="number" min="0" step="1" required value="0" class="num"></label>
+      <div class="btns"><button id="submitBtn" type="submit">新增</button><button id="cancelBtn" type="button" class="ghost" hidden>取消</button></div>
+    </form>
+    <div class="tools">
+      <input id="q" type="search" placeholder="搜尋品名…" aria-label="搜尋品名">
+      <button type="button" class="ghost" id="reload">重新整理</button>
+    </div>
+    <table class="stack">
+      <thead><tr><th>Id</th><th>品名</th><th class="r">單價</th><th class="r">庫存</th><th class="r">操作</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <p class="note" id="note"></p>
+  </section>
+
+  <aside>
+    <h2>呼叫紀錄 <span>HTTP → SP</span></h2>
+    <ul class="log" id="log"></ul>
+  </aside>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+{
+const API = 'api/products';
+let live = false, products = [], editingId = null, flashId = null, nextId = 4;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = n => Number(n).toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 2});
+
+/* ---- 模擬資料：沒有後端時用（範例資料，與 SQL 腳本相同） ---- */
+const now = () => new Date().toISOString().slice(0, 19);
+let mock = [
+  {id: 1, name: '口罩 (50入)', price: 199, stock: 120, createdAt: now(), updatedAt: null},
+  {id: 2, name: '酒精乾洗手', price: 89.5, stock: 300, createdAt: now(), updatedAt: null},
+  {id: 3, name: '電子體溫計', price: 450, stock: 25, createdAt: now(), updatedAt: null}
+];
+
+/* ---- 對應 SP 的 EXEC 字串（給紀錄面板看） ---- */
+function execSql(action, id, b) {
+  const p = [`@Action = N'${action}'`];
+  if (id != null) p.push(`@Id = ${id}`);
+  if (b) p.push(`@Name = N'${b.name.replace(/'/g, "''")}'`, `@Price = ${b.price}`, `@Stock = ${b.stock}`);
+  return `EXEC dbo.usp_Products_CRUD\n  ${p.join(',\n  ')};`;
+}
+
+function log(method, route, status, sql) {
+  const li = document.createElement('li');
+  li.innerHTML = `<div class="top"><span class="verb ${method}">${method}</span><span class="mono">/${esc(route)}</span><span class="st">${status}</span></div><pre>${esc(sql)}</pre>`;
+  $('log').prepend(li);
+}
+
+/* ---- 統一的呼叫：live 打真的 API；demo 模擬 SP 行為 ---- */
+async function call(method, id, body) {
+  const route = id != null ? `${API}/${id}` : API;
+  const action = {GET: id != null ? 'GET' : 'LIST', POST: 'CREATE', PUT: 'UPDATE', DELETE: 'DELETE'}[method];
+  let status, data = null;
+  if (live) {
+    const res = await fetch(route, {method, headers: body ? {'Content-Type': 'application/json'} : {}, body: body ? JSON.stringify(body) : undefined});
+    status = res.status;
+    if (res.status !== 204 && res.headers.get('content-type')?.includes('json')) data = await res.json();
+  } else {
+    await new Promise(r => setTimeout(r, 120));
+    const i = mock.findIndex(p => p.id === id);
+    if (action === 'LIST') { status = 200; data = mock.map(p => ({...p})); }
+    else if (action === 'GET') { status = i < 0 ? 404 : 200; data = i < 0 ? null : {...mock[i]}; }
+    else if (action === 'CREATE') { data = {id: nextId++, ...body, createdAt: now(), updatedAt: null}; mock.push(data); status = 201; }
+    else if (action === 'UPDATE') { if (i < 0) status = 404; else { Object.assign(mock[i], body, {updatedAt: now()}); data = {...mock[i]}; status = 200; } }
+    else { if (i < 0) status = 404; else { mock.splice(i, 1); status = 204; } }
+  }
+  log(method, route, status, execSql(action, id, body));
+  if (status >= 400) throw new Error(status === 404 ? '找不到這筆資料' : `錯誤 ${status}`);
+  return data;
+}
+
+function render() {
+  const q = $('q').value.trim().toLowerCase();
+  const list = products.filter(p => p.name.toLowerCase().includes(q));
+  $('count').textContent = `${list.length} / ${products.length} 筆`;
+  $('rows').innerHTML = list.length ? list.map(p => `
+    <tr data-id="${p.id}" class="${p.id === flashId ? 'flash' : ''}">
+      <td class="id">${p.id}</td>
+      <td data-l="品名">${esc(p.name)}<span class="sub">${p.updatedAt ? '更新 ' + p.updatedAt.replace('T', ' ').slice(0, 16) : '建立 ' + String(p.createdAt).replace('T', ' ').slice(0, 16)}</span></td>
+      <td class="r num" data-l="單價">$${money(p.price)}</td>
+      <td class="r num ${p.stock < 30 ? 'low' : ''}" data-l="庫存">${p.stock}</td>
+      <td class="r"><button class="edit" data-act="edit">編輯</button><button class="del" data-act="del">刪除</button></td>
+    </tr>`).join('') : `<tr><td colspan="5" class="empty">${products.length ? '沒有符合的商品' : '還沒有資料，從上面新增一筆'}</td></tr>`;
+  flashId = null;
+}
+
+async function load() {
+  try { products = await call('GET'); render(); } catch (e) { toast(e.message); }
+}
+
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 2200);
+}
+
+function resetForm() {
+  editingId = null; $('f').reset(); $('fPrice').value = 0; $('fStock').value = 0;
+  $('submitBtn').textContent = '新增'; $('cancelBtn').hidden = true;
+}
+
+$('f').addEventListener('submit', async e => {
+  e.preventDefault();
+  const body = {name: $('fName').value.trim(), price: Number($('fPrice').value), stock: parseInt($('fStock').value, 10)};
+  if (!body.name) return toast('請填品名');
+  try {
+    if (editingId == null) { const c = await call('POST', null, body); flashId = c.id; toast(`已新增 #${c.id}`); }
+    else { const u = await call('PUT', editingId, body); flashId = u.id; toast(`已更新 #${u.id}`); }
+    resetForm(); products = await call('GET'); render();
+  } catch (err) { toast(err.message); }
+});
+
+$('cancelBtn').addEventListener('click', resetForm);
+$('q').addEventListener('input', render);
+$('reload').addEventListener('click', load);
+
+$('rows').addEventListener('click', async e => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  const id = Number(btn.closest('tr').dataset.id);
+  if (btn.dataset.act === 'edit') {
+    try {
+      const p = await call('GET', id);
+      editingId = id; $('fName').value = p.name; $('fPrice').value = p.price; $('fStock').value = p.stock;
+      $('submitBtn').textContent = `儲存 #${id}`; $('cancelBtn').hidden = false; $('fName').focus();
+    } catch (err) { toast(err.message); }
+  } else if (btn.dataset.act === 'del') {
+    if (btn.dataset.armed !== '1') { btn.dataset.armed = '1'; btn.textContent = '確定？'; setTimeout(() => { btn.dataset.armed = ''; btn.textContent = '刪除'; }, 2500); return; }
+    try { await call('DELETE', id); if (editingId === id) resetForm(); toast(`已刪除 #${id}`); products = await call('GET'); render(); }
+    catch (err) { toast(err.message); }
+  }
+});
+
+/* ---- 啟動：偵測同源是否有 API ---- */
+(async () => {
+  try {
+    const ctl = new AbortController(); setTimeout(() => ctl.abort(), 1500);
+    const r = await fetch(API, {signal: ctl.signal});
+    live = r.ok && (r.headers.get('content-type') || '').includes('json');
+  } catch { live = false; }
+  $('mode').classList.toggle('live', live);
+  $('modeTxt').textContent = live ? '已連線 SQL Server' : '展示模式（模擬資料）';
+  $('note').textContent = live
+    ? '每個動作都實際呼叫 API，由 dbo.usp_Products_CRUD 寫進資料庫。'
+    : '目前沒有連到後端，資料只存在這個頁面裡；右側顯示的是真實環境會執行的 HTTP 與 SP 指令。用 F5 跑 ProductApi 後開啟根網址即為連線模式。';
+  load();
+})();
+}
+</script>
+</body>
+</html>

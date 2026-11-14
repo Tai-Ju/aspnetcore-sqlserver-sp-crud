@@ -20,6 +20,7 @@ src/ProductApi/
   Models/Product.cs
   Program.cs
   ProductApi.http           # VS 內建的 HTTP 測試檔
+  wwwroot/index.html        # CRUD demo 頁面
 ```
 
 ## 執行步驟（Visual Studio 2022）
@@ -27,7 +28,10 @@ src/ProductApi/
 1. 開啟 `ProductApi.sln`
 2. **建資料庫**：在 SSMS 或 VS 的「SQL Server 物件總管」連到 `(localdb)\MSSQLLocalDB`，執行 `database/01_schema_and_sp.sql`
 3. 連線字串在 `src/ProductApi/appsettings.json` 的 `ConnectionStrings:Default`，預設指向 LocalDB；用其他 SQL Server 改這裡即可
-4. F5 執行，瀏覽器會開 Swagger UI；或打開 `ProductApi.http` 逐一送 request
+4. F5 執行，瀏覽器會開 demo 頁面（`/`）：可直接新增／編輯／刪除，右側即時顯示每個 HTTP 請求對應執行的 `EXEC dbo.usp_Products_CRUD ...`
+5. Swagger 在 `/swagger`；也可以打開 `ProductApi.http` 逐一送 request
+
+> demo 頁面若偵測不到後端（例如直接用瀏覽器開檔案），會自動切換成「展示模式」，用頁面內的模擬資料操作。
 
 ## API
 
