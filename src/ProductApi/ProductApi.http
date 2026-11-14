@@ -1,0 +1,22 @@
+@host = http://localhost:5020
+
+### 查全部
+GET {{host}}/api/products
+
+### 查一筆
+GET {{host}}/api/products/1
+
+### 新增
+POST {{host}}/api/products
+Content-Type: application/json
+
+{ "name": "N95 口罩", "price": 35, "stock": 500 }
+
+### 修改
+PUT {{host}}/api/products/1
+Content-Type: application/json
+
+{ "name": "口罩 (50入) 新包裝", "price": 179, "stock": 100 }
+
+### 刪除
+DELETE {{host}}/api/products/3
