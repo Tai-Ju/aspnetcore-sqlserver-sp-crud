@@ -1,6 +1,7 @@
 # ProductApi — ASP.NET Core Web API + SQL Server Stored Procedure CRUD
 
-**線上 demo（展示模式，模擬資料）：** https://tai-ju.github.io/aspnetcore-sqlserver-sp-crud/
+🌐 專案介紹：https://tai-ju.github.io/aspnetcore-sqlserver-sp-crud/
+⚡ 互動 Demo：https://tai-ju.github.io/aspnetcore-sqlserver-sp-crud/demo.html
 
 一個很小的練習專案：ASP.NET Core 8 Web API，透過 **一支預存程序 `dbo.usp_Products_CRUD`** 對 `dbo.Products` 做新增／查詢／修改／刪除。資料存取用純 ADO.NET（`Microsoft.Data.SqlClient`），不用 EF Core，方便看清楚 SP 怎麼被呼叫。
 
@@ -22,7 +23,10 @@ src/ProductApi/
   Models/Product.cs
   Program.cs
   ProductApi.http           # VS 內建的 HTTP 測試檔
-  wwwroot/index.html        # CRUD demo 頁面
+  wwwroot/index.html        # 連線版 CRUD 頁（API 跑起來後開根網址）
+docs/
+  index.html                # GitHub Pages：專案介紹
+  demo.html                 # GitHub Pages：瀏覽器內互動 Demo（模擬 API 與 SP）
 ```
 
 ## 執行步驟（Visual Studio 2022）

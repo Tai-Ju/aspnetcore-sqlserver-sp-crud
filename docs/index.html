@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProductApi · ASP.NET Core + SQL Server 預存程序 CRUD</title>
+<meta name="description" content="用 ASP.NET Core 8 Web API 搭配 SQL Server 預存程序做的商品 CRUD：一張資料表、一支 SP、ADO.NET 參數化查詢。附瀏覽器內互動 Demo。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Noto+Serif+TC:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1a1724; --paper: #f1ede4; --panel: #fbf8f1; --line: #c3b9a6;
+  --accent: #512bd4; --accent-dark: #3a1f9a; --rust: #a3361f; --warn: #c45c26;
+  --ok: #2f6b4f; --muted: #655d70; --rail: #1d1930; --gold: #c9b5ff; --code-bg: #e8e1d2;
+  --mono: "IBM Plex Mono", Consolas, monospace;
+  --serif: "Noto Serif TC", "Source Han Serif TC", "PMingLiU", Georgia, serif;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; font-family: var(--serif); color: var(--ink); background: var(--paper); line-height: 1.7; }
+a { color: var(--accent-dark); }
+code { font-family: var(--mono); font-size: .85em; background: var(--code-bg); padding: .1rem .35rem; }
+.wrap { width: min(1080px, 100% - 32px); margin: 0 auto; }
+
+.top { position: sticky; top: 0; z-index: 10; background: var(--rail); color: var(--paper); }
+.top .wrap { display: flex; align-items: center; gap: 1.2rem; height: 56px; }
+.logo { font-family: var(--mono); font-weight: 600; letter-spacing: .06em; color: var(--gold); text-decoration: none; white-space: nowrap; }
+.top nav { display: flex; gap: 1rem; overflow-x: auto; flex: 1; }
+.top nav a { color: #e0dbee; text-decoration: none; font-size: .92rem; white-space: nowrap; }
+.top nav a:hover { color: var(--gold); }
+.top .cta { font-family: var(--mono); font-size: .82rem; color: var(--rail); background: var(--gold); padding: .35rem .7rem; text-decoration: none; white-space: nowrap; }
+
+.hero { padding: 4.5rem 0 3.5rem; border-bottom: 1px solid var(--line); background:
+  radial-gradient(circle at 85% 10%, #512bd422, transparent 40%),
+  repeating-linear-gradient(135deg, transparent 0 22px, #e4ddcf 22px 23px); }
+.eyebrow { font-family: var(--mono); font-size: .75rem; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); margin: 0 0 .6rem; }
+.hero h1 { font-size: clamp(2rem, 5.5vw, 3.4rem); font-weight: 900; line-height: 1.2; margin: 0; }
+.hero .en { font-family: var(--mono); color: var(--muted); font-size: clamp(.85rem, 2vw, 1rem); margin: .6rem 0 1.2rem; }
+.hero .lead { max-width: 40rem; font-size: 1.08rem; margin: 0 0 1.8rem; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; margin-bottom: 1.8rem; max-width: 760px; }
+.stat { background: var(--panel); border: 1px solid var(--line); padding: .8rem .9rem; box-shadow: 3px 3px 0 #ddd3c0; }
+.stat strong { display: block; font-family: var(--mono); font-size: 1.7rem; line-height: 1.2; }
+.stat span { font-size: .85rem; color: var(--muted); }
+.buttons { display: flex; gap: .7rem; flex-wrap: wrap; margin-bottom: 1.6rem; }
+.btn { display: inline-block; background: var(--accent); color: #fff; text-decoration: none; padding: .7rem 1.2rem; border: 1px solid var(--accent); }
+.btn:hover { background: var(--accent-dark); }
+.btn.ghost { background: transparent; color: var(--accent-dark); font-family: var(--mono); font-size: .9rem; }
+.btn.ghost:hover { background: #e6def5; }
+.tags { display: flex; flex-wrap: wrap; gap: .4rem; }
+.tags span { font-family: var(--mono); font-size: .78rem; border: 1px solid var(--line); background: #f8f4ea; padding: .15rem .55rem; }
+
+section.block { padding: 3.5rem 0; border-bottom: 1px dashed var(--line); }
+.sec-label { font-family: var(--mono); font-size: .8rem; letter-spacing: .14em; color: var(--accent); margin: 0 0 .3rem; }
+h2 { font-size: clamp(1.4rem, 3.5vw, 1.9rem); margin: 0 0 .8rem; }
+h3 { font-size: 1.05rem; margin: 0 0 .4rem; }
+.intro { max-width: 46rem; margin: 0 0 1.6rem; }
+.muted { color: var(--muted); }
+
+.flow { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; margin-bottom: 1.2rem; }
+.step { background: var(--panel); border: 1px solid var(--line); padding: .8rem .7rem; position: relative; min-width: 0; }
+.step + .step { border-left: 0; }
+.step::after { content: "→"; position: absolute; right: -.55rem; top: 50%; transform: translateY(-50%); font-family: var(--mono); color: var(--accent); background: var(--paper); line-height: 1; z-index: 1; }
+.step:last-child::after { content: none; }
+.step .n { font-family: var(--mono); font-size: .7rem; color: var(--muted); }
+.step strong { display: block; font-size: .95rem; }
+.step small { display: block; color: var(--muted); font-size: .8rem; line-height: 1.5; margin-top: .3rem; word-break: break-word; }
+.lanes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+.lane { border: 1px solid var(--line); padding: .8rem 1rem; background: #f8f4ea; }
+.lane b { font-family: var(--mono); font-size: .8rem; color: var(--accent); }
+
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .9rem; }
+.card { background: var(--panel); border: 1px solid var(--line); padding: 1rem 1.1rem; }
+.card .ico { font-family: var(--mono); font-size: .78rem; color: var(--gold); background: var(--rail); display: inline-block; padding: .1rem .45rem; margin-bottom: .5rem; }
+.card p { margin: 0; font-size: .93rem; }
+.card .file { display: block; margin-top: .55rem; font-family: var(--mono); font-size: .75rem; color: var(--muted); }
+
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 1.4rem; align-items: start; }
+pre { background: var(--rail); color: #ece8f6; font-family: var(--mono); font-size: .8rem; line-height: 1.6; padding: 1rem; overflow-x: auto; margin: 0; }
+pre .k { color: var(--gold); } pre .c { color: #8f88a6; } pre .s { color: #f0c58a; }
+.compare { border-collapse: collapse; width: 100%; font-size: .9rem; margin: 1rem 0; }
+.compare th, .compare td { border: 1px solid var(--line); padding: .45rem .6rem; text-align: left; vertical-align: top; }
+.compare th { background: #ece5d6; font-weight: 700; }
+.compare .bad { background: #fde8d8; } .compare .good { background: #e4f0e6; }
+.compare code { font-size: .78rem; word-break: break-all; }
+
+.table-wrap { overflow-x: auto; }
+table.plain { width: 100%; border-collapse: collapse; font-size: .92rem; }
+table.plain th, table.plain td { text-align: left; padding: .55rem .5rem; border-bottom: 1px dashed var(--line); vertical-align: top; }
+table.plain th { font-weight: 400; color: var(--muted); font-size: .82rem; }
+.verb { font-family: var(--mono); font-size: .75rem; padding: .05rem .4rem; color: #fff; display: inline-block; min-width: 3.6rem; text-align: center; }
+.verb.get { background: var(--ok); } .verb.post { background: var(--accent); } .verb.put { background: #7a5a1f; } .verb.del { background: var(--rust); }
+
+.schema { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem; }
+.schema .card ul { list-style: none; margin: .4rem 0 0; padding: 0; font-family: var(--mono); font-size: .8rem; }
+.schema .card li { padding: .2rem 0; border-bottom: 1px dotted var(--line); display: flex; justify-content: space-between; gap: .6rem; }
+.schema .card li span { color: var(--muted); text-align: right; }
+
+.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: .8rem; }
+.steps li { min-width: 0; counter-increment: s; background: var(--panel); border: 1px solid var(--line); padding: .9rem 1rem .9rem 3.2rem; position: relative; }
+.steps li::before { content: counter(s, decimal-leading-zero); position: absolute; left: 1rem; top: .9rem; font-family: var(--mono); color: var(--accent); font-weight: 600; }
+.steps pre { margin-top: .5rem; }
+.os { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; margin-top: .5rem; }
+.os div { min-width: 0; }
+.os b { font-family: var(--mono); font-size: .78rem; color: var(--muted); }
+.callout { border-left: 4px solid var(--warn); background: #fde8d8; padding: .8rem 1rem; margin: 1rem 0 0; font-size: .92rem; }
+.callout ul { margin: .3rem 0 0; padding-left: 1.2rem; }
+
+footer.site { background: var(--rail); color: #cbc4dc; padding: 2rem 0; font-size: .88rem; }
+footer.site .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+footer.site a { color: var(--gold); font-family: var(--mono); }
+
+a:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@media (max-width: 900px) {
+  .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+  .step + .step { border-left: 1px solid var(--line); }
+  .step::after { content: none; }
+  .grid3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .two, .lanes, .schema, .os { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .top nav { display: none; }
+  .top .wrap { justify-content: space-between; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid3 { grid-template-columns: minmax(0, 1fr); }
+  .hero { padding: 3rem 0 2.5rem; }
+  section.block { padding: 2.6rem 0; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="#top">PRODUCT_API /</a>
+    <nav aria-label="頁內導覽">
+      <a href="#architecture">架構</a><a href="#features">功能</a><a href="#sp">預存程序</a><a href="#security">安全</a><a href="#api">API</a><a href="#install">安裝</a>
+    </nav>
+    <a class="cta" href="demo.html">互動 Demo →</a>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">ASP.NET Core 8 · ADO.NET · SQL Server · Stored Procedure</p>
+      <h1>ProductApi<br>預存程序驅動的商品 CRUD</h1>
+      <p class="en">A tiny ASP.NET Core Web API where every query goes through one stored procedure</p>
+      <p class="lead">一張 <code>dbo.Products</code> 資料表、一支 <code>dbo.usp_Products_CRUD</code> 預存程序，加上五個 REST 端點。資料存取不用 EF Core，直接用 <code>SqlCommand</code> 呼叫 SP，所有值都走 <code>SqlParameter</code>，看得到 API 到資料庫的每一步。</p>
+      <div class="stats">
+        <div class="stat"><strong>5</strong><span>REST API 端點</span></div>
+        <div class="stat"><strong>1</strong><span>預存程序</span></div>
+        <div class="stat"><strong>2</strong><span>層輸入驗證</span></div>
+        <div class="stat"><strong>0</strong><span>行拼接 SQL</span></div>
+      </div>
+      <div class="buttons">
+        <a class="btn" href="demo.html">查看互動 Demo</a>
+        <a class="btn ghost" href="https://github.com/Tai-Ju/aspnetcore-sqlserver-sp-crud">VIEW ON GITHUB →</a>
+      </div>
+      <div class="tags"><span>.NET 8</span><span>ASP.NET Core Web API</span><span>Microsoft.Data.SqlClient</span><span>SQL Server / LocalDB</span><span>T-SQL</span><span>Data Annotations</span><span>Swagger</span><span>Dependency Injection</span></div>
+    </div>
+  </section>
+
+  <section class="block" id="architecture">
+    <div class="wrap">
+      <p class="sec-label">01 / ARCHITECTURE</p>
+      <h2>一個請求怎麼走完</h2>
+      <p class="intro">Controller 只管 HTTP：收參數、回狀態碼。資料存取集中在 Repository，透過 DI 注入，而 Repository 只認得一支 SP。換資料庫寫法時，API 的介面完全不用動。</p>
+      <div class="flow">
+        <div class="step"><span class="n">01</span><strong>Route</strong><small>api/products<br>{id:int} 路由限制</small></div>
+        <div class="step"><span class="n">02</span><strong>Model Binding</strong><small>[ApiController]<br>驗證失敗自動 400</small></div>
+        <div class="step"><span class="n">03</span><strong>Controller</strong><small>ProductsController<br>對應狀態碼</small></div>
+        <div class="step"><span class="n">04</span><strong>Repository</strong><small>IProductRepository<br>AddScoped 注入</small></div>
+        <div class="step"><span class="n">05</span><strong>SqlCommand</strong><small>CommandType.<br>StoredProcedure</small></div>
+        <div class="step"><span class="n">06</span><strong>SP → Table</strong><small>usp_Products_CRUD<br>dbo.Products</small></div>
+      </div>
+      <div class="lanes">
+        <div class="lane"><b>API 層</b>　Data Annotations 擋掉空白品名、負數價格；路由的 <code>{id:int}</code> 讓 <code>1 OR 1=1</code> 這種值根本進不來。</div>
+        <div class="lane"><b>DB 層</b>　<code>NOT NULL</code>、<code>CHECK (Price &gt;= 0)</code>、<code>CHECK (Stock &gt;= 0)</code>。就算有人繞過 API 直接呼叫 SP，資料一樣不會壞。</div>
+      </div>
+
+      <h3 style="margin-top:2rem">資料模型</h3>
+      <div class="schema">
+        <div class="card"><h3>dbo.Products</h3><ul>
+          <li>Id<span>INT IDENTITY · PK</span></li><li>Name<span>NVARCHAR(100) NOT NULL</span></li><li>Price<span>DECIMAL(10,2) · CHECK ≥ 0</span></li>
+          <li>Stock<span>INT · CHECK ≥ 0</span></li><li>CreatedAt<span>DATETIME2 · DEFAULT SYSDATETIME()</span></li><li>UpdatedAt<span>DATETIME2 NULL · 修改時寫入</span></li></ul></div>
+        <div class="card"><h3>dbo.usp_Products_CRUD</h3><ul>
+          <li>@Action<span>LIST / GET / CREATE / UPDATE / DELETE</span></li><li>@Id<span>INT = NULL</span></li><li>@Name<span>NVARCHAR(100) = NULL</span></li>
+          <li>@Price<span>DECIMAL(10,2) = NULL</span></li><li>@Stock<span>INT = NULL</span></li><li>其他值<span>THROW 50001</span></li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="features">
+    <div class="wrap">
+      <p class="sec-label">02 / FEATURES</p>
+      <h2>功能</h2>
+      <div class="grid3">
+        <article class="card"><span class="ico">CRUD</span><h3>商品增刪查改</h3><p>五個端點對應 SP 的五個 @Action，找不到資料回 404，新增回 201 並附上 Location 標頭。</p><span class="file">ProductsController.cs</span></article>
+        <article class="card"><span class="ico">1 SP</span><h3>一支預存程序</h3><p>用 @Action 分派操作，SQL 邏輯全部留在資料庫，API 端只負責組參數、讀結果。</p><span class="file">database/01_schema_and_sp.sql</span></article>
+        <article class="card"><span class="ico">OUTPUT</span><h3>寫入即回傳</h3><p>CREATE、UPDATE 用 <code>OUTPUT inserted.*</code> 直接回傳異動後的資料列，省掉一次查詢來回。</p><span class="file">usp_Products_CRUD</span></article>
+        <article class="card"><span class="ico">PARAM</span><h3>參數化查詢</h3><p>每個值都用 <code>SqlParameter</code> 並指定型別和長度，DECIMAL 也設好 Precision 和 Scale。</p><span class="file">ProductRepository.BuildCommand</span></article>
+        <article class="card"><span class="ico">VALID</span><h3>兩層驗證</h3><p>API 用 Data Annotations 先擋，資料庫用 NOT NULL 和 CHECK 條件約束再擋一次。</p><span class="file">Models/Product.cs · SQL CHECK</span></article>
+        <article class="card"><span class="ico">ASYNC</span><h3>非同步存取</h3><p>OpenAsync、ExecuteReaderAsync 搭配 <code>await using</code>，連線用完就歸還連線池。</p><span class="file">ProductRepository.cs</span></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="sp">
+    <div class="wrap">
+      <p class="sec-label">03 / STORED PROCEDURE</p>
+      <h2>五種操作，一個入口</h2>
+      <div class="two">
+        <div>
+          <p style="margin-top:0">API 不寫任何 SQL 字串，只告訴 SP「要做什麼」和「用哪些值」。每個端點對應到的呼叫如下：</p>
+          <table class="compare">
+            <thead><tr><th>HTTP</th><th>@Action</th><th>SP 回傳</th></tr></thead>
+            <tbody>
+              <tr><td><code>GET /api/products</code></td><td>LIST</td><td>全部資料列</td></tr>
+              <tr><td><code>GET /api/products/1</code></td><td>GET</td><td>0 或 1 列 → 404 / 200</td></tr>
+              <tr><td><code>POST /api/products</code></td><td>CREATE</td><td>新增的那列 → 201</td></tr>
+              <tr><td><code>PUT /api/products/1</code></td><td>UPDATE</td><td>修改後的那列，0 列 → 404</td></tr>
+              <tr><td><code>DELETE /api/products/1</code></td><td>DELETE</td><td>AffectedRows → 204 / 404</td></tr>
+            </tbody>
+          </table>
+          <a class="btn" href="demo.html#/sp">在 Demo 裡直接執行 SP</a>
+        </div>
+<pre><span class="k">CREATE OR ALTER PROCEDURE</span> dbo.usp_Products_CRUD
+    @Action NVARCHAR(10),
+    @Id     INT           = NULL,
+    @Name   NVARCHAR(100) = NULL,
+    @Price  DECIMAL(10,2) = NULL,
+    @Stock  INT           = NULL
+<span class="k">AS BEGIN</span>
+    <span class="k">SET NOCOUNT ON</span>; <span class="k">SET XACT_ABORT ON</span>;
+
+    <span class="k">IF</span> @Action = <span class="s">N'CREATE'</span>
+    <span class="k">BEGIN</span>
+        <span class="k">INSERT INTO</span> dbo.Products (Name, Price, Stock)
+        <span class="c">-- 直接把新增的那列回傳給 API</span>
+        <span class="k">OUTPUT</span> inserted.Id, inserted.Name, inserted.Price,
+               inserted.Stock, inserted.CreatedAt, inserted.UpdatedAt
+        <span class="k">VALUES</span> (@Name, ISNULL(@Price, 0), ISNULL(@Stock, 0));
+        <span class="k">RETURN</span>;
+    <span class="k">END</span>
+    <span class="c">-- LIST / GET / UPDATE / DELETE 同樣寫法……</span>
+
+    <span class="k">THROW</span> 50001, <span class="s">N'Unknown @Action.'</span>, 1;
+<span class="k">END</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="security">
+    <div class="wrap">
+      <p class="sec-label">04 / SECURITY</p>
+      <h2>同一個輸入，兩種寫法</h2>
+      <p class="intro">刪除時如果把網址上的 id 直接拼進 SQL，有人送 <code>1 OR 1=1</code> 就能清空整張表。這個專案三道防線都有：路由型別、SqlParameter、預存程序。</p>
+      <div class="two">
+        <table class="compare" style="margin-top:0">
+          <thead><tr><th></th><th>字串拼接</th><th>SqlParameter + SP</th></tr></thead>
+          <tbody>
+            <tr><th>收到</th><td colspan="2"><code>DELETE /api/products/1 OR 1=1</code></td></tr>
+            <tr><th>實際執行</th><td class="bad"><code>DELETE FROM Products WHERE Id = 1 OR 1=1</code></td><td class="good">路由 <code>{id:int}</code> 不符 → 404，SP 根本沒被呼叫</td></tr>
+            <tr><th>結果</th><td class="bad">整張表被刪光</td><td class="good">資料不變</td></tr>
+          </tbody>
+        </table>
+<pre><span class="c">// ProductRepository.BuildCommand（節錄）</span>
+<span class="k">var</span> cmd = <span class="k">new</span> SqlCommand(<span class="s">"dbo.usp_Products_CRUD"</span>, conn)
+    { CommandType = CommandType.StoredProcedure };
+
+cmd.Parameters.Add(<span class="s">"@Action"</span>, SqlDbType.NVarChar, 10).Value = action;
+cmd.Parameters.Add(<span class="s">"@Id"</span>, SqlDbType.Int).Value = (<span class="k">object</span>?)id ?? DBNull.Value;
+cmd.Parameters.Add(<span class="s">"@Name"</span>, SqlDbType.NVarChar, 100).Value = ...;
+
+<span class="k">var</span> price = cmd.Parameters.Add(<span class="s">"@Price"</span>, SqlDbType.Decimal);
+price.Precision = 10; price.Scale = 2;</pre>
+      </div>
+      <p style="margin-top:1.2rem"><a href="demo.html#/injection">在 Demo 裡自己輸入看看 →</a></p>
+    </div>
+  </section>
+
+  <section class="block" id="api">
+    <div class="wrap">
+      <p class="sec-label">05 / API</p>
+      <h2>REST API</h2>
+      <p class="intro">本機跑起來後，Swagger 在 <code>/swagger</code>；repo 裡的 <code>ProductApi.http</code> 可以直接在 Visual Studio 送請求，也可以在 <a href="demo.html#/api">Demo 的 API 測試台</a>試。</p>
+      <div class="table-wrap"><table class="plain">
+        <thead><tr><th>方法</th><th>路徑</th><th>說明</th><th>回應</th></tr></thead>
+        <tbody>
+          <tr><td><span class="verb get">GET</span></td><td><code>/api/products</code></td><td>商品列表</td><td>200</td></tr>
+          <tr><td><span class="verb get">GET</span></td><td><code>/api/products/{id}</code></td><td>單一商品</td><td>200 / 404</td></tr>
+          <tr><td><span class="verb post">POST</span></td><td><code>/api/products</code></td><td>新增商品，body：<code>{ name, price, stock }</code></td><td>201 / 400</td></tr>
+          <tr><td><span class="verb put">PUT</span></td><td><code>/api/products/{id}</code></td><td>修改商品</td><td>200 / 400 / 404</td></tr>
+          <tr><td><span class="verb del">DELETE</span></td><td><code>/api/products/{id}</code></td><td>刪除商品</td><td>204 / 404</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section class="block" id="install">
+    <div class="wrap">
+      <p class="sec-label">06 / INSTALL</p>
+      <h2>在自己電腦跑起來</h2>
+      <ol class="steps">
+        <li><strong>取得程式</strong>：需要 .NET 8 SDK。Windows 用 Visual Studio 2022 開 <code>ProductApi.sln</code>；Mac 用 VS Code 或 Rider。
+<pre>git clone https://github.com/Tai-Ju/aspnetcore-sqlserver-sp-crud
+cd aspnetcore-sqlserver-sp-crud</pre></li>
+        <li><strong>準備 SQL Server</strong>
+          <div class="os">
+            <div><b>WINDOWS</b><br>Visual Studio 內建 LocalDB，連 <code>(localdb)\MSSQLLocalDB</code> 即可，連線字串不用改。</div>
+            <div><b>MAC</b><br>用 Docker 跑 SQL Server，再把 <code>appsettings.json</code> 改成 <code>Server=localhost,1433;User Id=sa;Password=…;TrustServerCertificate=True</code>。</div>
+          </div></li>
+        <li><strong>建資料表與預存程序</strong>：在 SSMS、Azure Data Studio 或 VS 的 SQL Server 物件總管執行
+<pre>database/01_schema_and_sp.sql</pre></li>
+        <li><strong>啟動</strong>：按 F5，或
+<pre>dotnet run --project src/ProductApi</pre>
+          開 <code>http://localhost:5020</code> 是連線版的 CRUD 頁，<code>/swagger</code> 是 API 文件。</li>
+      </ol>
+      <div class="callout"><strong>常見問題</strong>
+        <ul>
+          <li>出現 <code>Cannot open database "ProductDb"</code>：SQL 腳本還沒執行，或連線字串指到別台。</li>
+          <li>Mac 上 LocalDB 不能用，一定要改連線字串。</li>
+          <li>SP 改過之後，重跑整份腳本即可；用的是 <code>CREATE OR ALTER</code>，不會報已存在。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>Tai-Ju Liu · 2026 · 學習作品，示範資料皆為虛構</span>
+    <span><a href="demo.html">DEMO</a>　<a href="https://github.com/Tai-Ju/aspnetcore-sqlserver-sp-crud">GITHUB →</a></span>
+  </div>
+</footer>
+</body>
+</html>

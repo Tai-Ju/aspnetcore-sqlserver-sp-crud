@@ -1,10 +1,10 @@
-# Deploys src/ProductApi/wwwroot (CRUD demo, demo mode without backend)
+# Deploys docs/ (project intro + interactive demo) to GitHub Pages
 name: Deploy demo to GitHub Pages
 
 on:
   push:
     branches: [main]
-    paths: ["src/ProductApi/wwwroot/**", ".github/workflows/pages.yml"]
+    paths: ["docs/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -27,6 +27,6 @@ jobs:
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: src/ProductApi/wwwroot
+          path: docs
       - id: deployment
         uses: actions/deploy-pages@v4

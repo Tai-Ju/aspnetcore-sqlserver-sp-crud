@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>互動 Demo · ProductApi</title>
+<meta name="description" content="ASP.NET Core Web API + SQL Server 預存程序 CRUD 的瀏覽器內互動 Demo：商品增刪改、SP 執行台、SQL Injection 對照與 REST API 測試台。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1a1724; --paper: #f1ede4; --panel: #fbf8f1; --line: #c3b9a6;
+  --accent: #512bd4; --accent-dark: #3a1f9a; --rust: #a3361f; --warn: #c45c26;
+  --ok: #2f6b4f; --muted: #655d70; --rail: #1d1930; --gold: #c9b5ff;
+  --low-bg: #fde8d8; --ok-bg: #e4f0e6; --code-bg: #e8e1d2;
+  --mono: "IBM Plex Mono", Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body { font-family: "Noto Serif TC", "Source Han Serif TC", "PMingLiU", Georgia, serif; color: var(--ink); background: var(--paper); line-height: 1.55; }
+a { color: var(--accent-dark); }
+code, .mono { font-family: var(--mono); font-size: .85rem; }
+code { background: var(--code-bg); padding: .1rem .35rem; }
+button { font: inherit; }
+
+.banner { background: var(--ink); color: var(--paper); font-size: .85rem; padding: .55rem 1rem; display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+.banner .badge { font-family: var(--mono); font-size: .72rem; letter-spacing: .14em; border: 1px solid var(--gold); color: var(--gold); padding: .1rem .45rem; }
+.banner .grow { flex: 1 1 260px; color: #d4cfe0; }
+.banner a, .banner button.linkish { color: var(--gold); }
+
+.shell { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: calc(100vh - 40px); }
+.rail { background: var(--rail); color: var(--paper); padding: 1.4rem 1rem; display: flex; flex-direction: column; gap: 1.4rem; }
+.brand { display: flex; gap: .75rem; align-items: center; }
+.brand-mark { width: 42px; height: 42px; display: grid; place-items: center; border: 2px solid var(--gold); color: var(--gold); font-weight: 700; font-family: var(--mono); flex: none; font-size: .8rem; }
+.brand small { display: block; color: #a9a2bf; font-family: var(--mono); font-size: .72rem; }
+.rail nav { display: flex; flex-direction: column; gap: .3rem; }
+.rail nav a { color: var(--paper); text-decoration: none; padding: .5rem .7rem; border-left: 3px solid transparent; white-space: nowrap; }
+.rail nav a.is-on { border-left-color: var(--gold); background: #2c2647; }
+.rail nav a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.rail nav .sep { border-top: 1px dashed #433b60; margin: .4rem 0; }
+.pill { display: inline-block; margin-left: .4rem; background: var(--accent); color: #fff; border-radius: 999px; padding: 0 .45rem; font-size: .75rem; font-family: var(--mono); }
+.rail-foot { margin-top: auto; font-size: .85rem; color: #a9a2bf; }
+.linkish { background: none; border: 0; color: var(--gold); cursor: pointer; text-decoration: underline; padding: 0; }
+
+.stage { padding: 1.6rem 2rem 3rem; min-width: 0; }
+.page-head { display: flex; justify-content: space-between; gap: 1rem; align-items: end; margin-bottom: 1.2rem; flex-wrap: wrap; }
+.eyebrow { letter-spacing: .18em; text-transform: uppercase; color: var(--muted); font-size: .72rem; margin: 0 0 .25rem; font-family: var(--mono); }
+h1, h2, h3 { font-weight: 700; margin: 0 0 .4rem; }
+h1 { font-size: 1.7rem; } h2 { font-size: 1.15rem; } h3 { font-size: .98rem; }
+.muted { color: var(--muted); }
+.lead { max-width: 46rem; margin: -.4rem 0 1.2rem; }
+
+.metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; margin-bottom: 1.2rem; }
+.metrics article { background: var(--panel); border: 1px solid var(--line); padding: .9rem 1rem; box-shadow: 3px 3px 0 #ddd3c0; }
+.metrics span { color: var(--muted); font-size: .85rem; }
+.metrics strong { display: block; font-size: 1.8rem; font-family: var(--mono); white-space: nowrap; }
+.metrics .warn { border-color: var(--warn); background: var(--low-bg); }
+
+.split { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, .9fr); gap: 1rem; align-items: start; }
+.panel { background: var(--panel); border: 1px solid var(--line); padding: 1rem 1.1rem; margin-bottom: 1rem; min-width: 0; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: .5rem .4rem; border-bottom: 1px dashed var(--line); vertical-align: top; }
+th { font-size: .82rem; color: var(--muted); font-weight: 400; white-space: nowrap; }
+td.num, th.num { font-family: var(--mono); white-space: nowrap; text-align: right; }
+td.id { font-family: var(--mono); font-weight: 600; }
+td small { display: block; color: var(--muted); font-size: .78rem; font-family: var(--mono); }
+.row-low td.stock { color: var(--rust); font-weight: 600; }
+.row-flash { animation: fl 1.4s ease-out; }
+@keyframes fl { from { background: #e6def5; } to { background: transparent; } }
+
+.btn { display: inline-block; background: var(--accent); color: #fff; text-decoration: none; border: 0; padding: .55rem .95rem; cursor: pointer; white-space: nowrap; }
+.btn:hover { background: var(--accent-dark); }
+.btn.ghost { background: transparent; color: var(--accent-dark); border: 1px solid var(--accent); }
+.btn.ghost:hover { background: #e6def5; }
+.btn.danger { background: var(--rust); }
+.btn.small { padding: .3rem .6rem; font-size: .88rem; }
+.btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.actions { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
+
+.flash { padding: .7rem .9rem; margin-bottom: 1rem; border: 1px solid; }
+.flash.ok { background: var(--ok-bg); border-color: var(--ok); }
+.flash.bad { background: var(--low-bg); border-color: var(--warn); }
+.err { color: var(--rust); font-size: .88rem; }
+
+.toolbar { display: flex; gap: .6rem; flex-wrap: wrap; align-items: end; margin-bottom: .6rem; }
+.toolbar input { flex: 1 1 200px; }
+.toolbar label input { flex: none; }
+.form { display: flex; flex-direction: column; gap: .7rem; }
+label { display: flex; flex-direction: column; gap: .3rem; font-size: .92rem; }
+input, select, textarea { font: inherit; padding: .45rem .55rem; border: 1px solid var(--line); background: #fff; color: var(--ink); min-width: 0; }
+input.is-bad { border-color: var(--rust); }
+input[name=price], input[name=stock], input[name=id], input.mono { font-family: var(--mono); }
+.row3 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
+
+pre.out, pre.code { background: var(--rail); color: #ece8f6; font-family: var(--mono); font-size: .8rem; padding: .8rem; margin: 0; overflow: auto; max-height: 26rem; white-space: pre-wrap; word-break: break-word; }
+pre.code .k { color: var(--gold); } pre.code .s { color: #f0c58a; }
+.status { font-family: var(--mono); font-size: .85rem; padding: .15rem .5rem; color: #fff; display: inline-block; }
+.status.s2 { background: var(--ok); } .status.s4 { background: var(--warn); } .status.s5 { background: var(--rust); }
+.curl { font-family: var(--mono); font-size: .78rem; background: var(--code-bg); padding: .5rem .6rem; overflow-x: auto; white-space: pre; }
+.presets { display: flex; gap: .35rem; flex-wrap: wrap; }
+.api-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+.api-line { display: flex; gap: .4rem; flex-wrap: wrap; }
+.api-line select { flex: 0 0 auto; font-family: var(--mono); font-size: .88rem; }
+.api-line input { flex: 1 1 180px; font-family: var(--mono); font-size: .88rem; }
+textarea.json { font-family: var(--mono); font-size: .82rem; min-height: 8rem; resize: vertical; }
+
+.calls { list-style: none; margin: 0; padding: 0; }
+.calls li { padding: .55rem 0; border-bottom: 1px dashed var(--line); display: grid; gap: .3rem; }
+.calls .top { display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; font-family: var(--mono); font-size: .8rem; }
+.calls .src { color: var(--muted); }
+.calls .st { margin-left: auto; }
+.calls pre { font-size: .75rem; padding: .5rem .6rem; }
+.verb { font-family: var(--mono); font-size: .72rem; padding: .05rem .4rem; color: #fff; display: inline-block; min-width: 3.4rem; text-align: center; }
+.verb.GET { background: var(--ok); } .verb.POST { background: var(--accent); } .verb.PUT { background: #7a5a1f; } .verb.DELETE { background: var(--rust); } .verb.EXEC { background: var(--rail); }
+.skip { font-size: .8rem; color: var(--rust); font-family: var(--mono); }
+
+/* SP console */
+.sp-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 1rem; align-items: start; }
+.tabs { display: flex; border-bottom: 1px solid var(--line); margin-bottom: .6rem; }
+.tabs button { background: none; border: 0; border-bottom: 3px solid transparent; padding: .4rem .8rem; cursor: pointer; color: var(--muted); }
+.tabs button.is-on { border-bottom-color: var(--accent); color: var(--ink); }
+.msg { font-family: var(--mono); font-size: .8rem; white-space: pre-wrap; margin: 0; }
+.msg.bad { color: var(--rust); }
+.grid-out td, .grid-out th { font-family: var(--mono); font-size: .8rem; white-space: nowrap; }
+.grid-out .null { color: var(--muted); font-style: italic; }
+
+/* injection */
+.race { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: .8rem; }
+.lane { border: 1px solid var(--line); background: #fdfbf6; }
+.lane h3 { font-size: .95rem; padding: .55rem .75rem; margin: 0; border-bottom: 1px solid var(--line); }
+.lane.bad h3 { background: var(--low-bg); } .lane.good h3 { background: var(--ok-bg); }
+.lane .body { padding: .75rem; display: grid; gap: .6rem; font-size: .9rem; }
+.lane pre { font-size: .76rem; }
+.verdict { padding: .5rem .6rem; font-size: .88rem; border: 1px solid; }
+.lane.bad .verdict.hit { border-color: var(--warn); background: var(--low-bg); }
+.verdict.safe { border-color: var(--ok); background: var(--ok-bg); }
+.verdict.neutral { border-color: var(--line); background: #f6f1e6; }
+
+.source { margin-top: 1.4rem; border-top: 1px dashed var(--line); padding-top: .8rem; font-size: .85rem; color: var(--muted); }
+.source a { font-family: var(--mono); font-size: .8rem; margin-right: .8rem; display: inline-block; }
+
+@media (max-width: 960px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .rail { flex-direction: column; gap: .8rem; padding: .9rem 1rem; }
+  .rail nav { flex-direction: row; overflow-x: auto; gap: .2rem; padding-bottom: .2rem; }
+  .rail nav a { border-left: 0; border-bottom: 3px solid transparent; padding: .4rem .55rem; }
+  .rail nav a.is-on { border-bottom-color: var(--gold); }
+  .rail nav .sep { display: none; }
+  .rail-foot { display: none; }
+  .stage { padding: 1.2rem 1rem 2.5rem; }
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .split, .api-grid, .race, .sp-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .stack, .stack tbody { display: block; }
+  .stack thead { display: none; }
+  .stack tr { display: grid; grid-template-columns: minmax(0, 1fr); padding: .5rem 0; border-bottom: 1px dashed var(--line); }
+  .stack td { border: 0; padding: .15rem 0; display: flex; justify-content: space-between; gap: .8rem; text-align: right; }
+  .stack td::before { content: attr(data-l); color: var(--muted); font-size: .82rem; font-family: "Noto Serif TC", serif; }
+  .row3 { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { .row-flash { animation: none; } }
+</style>
+</head>
+<body>
+<div class="banner" role="note">
+  <span class="badge">STATIC DEMO</span>
+  <span class="grow">在瀏覽器內模擬 ASP.NET Core API 與 <code style="background:#2c2647;color:#ece8f6">usp_Products_CRUD</code> 的行為，資料只存在你的瀏覽器。</span>
+  <a href="./">← 專案介紹</a>
+  <a href="https://github.com/Tai-Ju/aspnetcore-sqlserver-sp-crud">GitHub</a>
+  <button class="linkish" id="reset-btn" type="button">重設示範資料</button>
+</div>
+<div id="app"></div>
+
+<script>
+(() => {
+  const KEY = 'productapi-demo-v1';
+  const LOW = 30;
+  const MAX_PRICE = 99999999.99;
+  const INT_MAX = 2147483647;
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const money = (n) => Number(n).toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  const now = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 19); };
+  const clock = (iso) => String(iso || '').replace('T', ' ').slice(0, 16);
+
+  // ---------- 資料（示範資料，前三筆與 SQL 腳本相同） ----------
+  function seed() {
+    const t = now();
+    const rows = [['口罩 (50入)', 199, 120], ['酒精乾洗手', 89.5, 300], ['電子體溫計', 450, 25], ['醫療用手套 (100入)', 260, 18], ['血氧機', 1280, 40]];
+    return { products: rows.map(([name, price, stock], i) => ({ id: i + 1, name, price, stock, createdAt: t, updatedAt: null })), nextId: rows.length + 1, log: [] };
+  }
+  let db;
+  try { db = JSON.parse(localStorage.getItem(KEY)) || seed(); } catch { db = seed(); }
+  if (!db || !Array.isArray(db.products)) db = seed();
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch { /* 無法儲存時照樣運作 */ } };
+
+  // ---------- 模擬 dbo.usp_Products_CRUD ----------
+  const COLS = ['Id', 'Name', 'Price', 'Stock', 'CreatedAt', 'UpdatedAt'];
+  const toRow = (p) => [p.id, p.name, p.price.toFixed(2), p.stock, p.createdAt, p.updatedAt];
+  const sqlErr = (num, line, text) => ({ num, text: `Msg ${num}, Level 16, State ${num === 50001 ? 1 : 2}, Procedure dbo.usp_Products_CRUD, Line ${line}\n${text}` });
+
+  function execText(action, p = {}) {
+    const parts = [`@Action = N'${String(action).replace(/'/g, "''")}'`];
+    if (p.id != null) parts.push(`@Id = ${p.id}`);
+    if (p.name != null) parts.push(`@Name = N'${String(p.name).replace(/'/g, "''")}'`);
+    if (p.price != null) parts.push(`@Price = ${p.price}`);
+    if (p.stock != null) parts.push(`@Stock = ${p.stock}`);
+    return `EXEC dbo.usp_Products_CRUD\n    ${parts.join(',\n    ')};`;
+  }
+
+  // p: { id, name, price, stock }，null 代表沒傳（使用 SP 預設值 NULL）
+  function sp(action, p = {}) {
+    const name = p.name == null ? null : String(p.name).slice(0, 100); // NVARCHAR(100) 參數會直接截斷
+    let price = p.price;
+    if (price != null) {
+      if (Math.abs(price) > MAX_PRICE + 0.005) return { error: sqlErr(8115, 0, 'Arithmetic overflow error converting numeric to data type numeric.') };
+      price = Math.round(price * 100) / 100; // DECIMAL(10,2) 四捨五入
+    }
+    const stock = p.stock == null ? null : Math.trunc(p.stock);
+    const find = () => db.products.findIndex((x) => x.id === p.id);
+
+    switch (action) {
+      case 'LIST': return { cols: COLS, rows: [...db.products].sort((a, b) => a.id - b.id).map(toRow) };
+      case 'GET': { const i = find(); return { cols: COLS, rows: i < 0 ? [] : [toRow(db.products[i])] }; }
+      case 'CREATE': {
+        if (name == null) return { error: sqlErr(515, 40, "Cannot insert the value NULL into column 'Name', table 'ProductDb.dbo.Products'; column does not allow nulls. INSERT fails.") };
+        const pr = price ?? 0, st = stock ?? 0;
+        if (pr < 0) return { error: sqlErr(547, 40, 'The INSERT statement conflicted with the CHECK constraint "CK_Products_Price". The conflict occurred in database "ProductDb", table "dbo.Products", column \'Price\'.') };
+        if (st < 0) return { error: sqlErr(547, 40, 'The INSERT statement conflicted with the CHECK constraint "CK_Products_Stock". The conflict occurred in database "ProductDb", table "dbo.Products", column \'Stock\'.') };
+        const row = { id: db.nextId++, name, price: pr, stock: st, createdAt: now(), updatedAt: null };
+        db.products.push(row); save();
+        return { cols: COLS, rows: [toRow(row)], product: row };
+      }
+      case 'UPDATE': {
+        const i = find();
+        if (i < 0) return { cols: COLS, rows: [] };
+        for (const [col, v] of [['Name', name], ['Price', price], ['Stock', stock]]) {
+          if (v == null) return { error: sqlErr(515, 51, `Cannot insert the value NULL into column '${col}', table 'ProductDb.dbo.Products'; column does not allow nulls. UPDATE fails.`) };
+        }
+        if (price < 0) return { error: sqlErr(547, 51, 'The UPDATE statement conflicted with the CHECK constraint "CK_Products_Price". The conflict occurred in database "ProductDb", table "dbo.Products", column \'Price\'.') };
+        if (stock < 0) return { error: sqlErr(547, 51, 'The UPDATE statement conflicted with the CHECK constraint "CK_Products_Stock". The conflict occurred in database "ProductDb", table "dbo.Products", column \'Stock\'.') };
+        Object.assign(db.products[i], { name, price, stock, updatedAt: now() }); save();
+        return { cols: COLS, rows: [toRow(db.products[i])], product: db.products[i] };
+      }
+      case 'DELETE': {
+        const i = find(); let n = 0;
+        if (i >= 0) { db.products.splice(i, 1); n = 1; save(); }
+        return { cols: ['AffectedRows'], rows: [[n]] };
+      }
+      default: return { error: sqlErr(50001, 87, 'Unknown @Action. Use LIST / GET / CREATE / UPDATE / DELETE.') };
+    }
+  }
+
+  // ---------- 呼叫紀錄 ----------
+  function log(entry) {
+    db.log.unshift({ at: now(), ...entry });
+    db.log = db.log.slice(0, 60); save();
+  }
+
+  // ---------- 模擬 ASP.NET Core API（Controller + Model Binding + Data Annotations） ----------
+  const problem = (status, title, extra = {}) => ({ type: `https://tools.ietf.org/html/rfc9110#section-15.5.${status === 400 ? 1 : 5}`, title, status, ...extra });
+  const json = (p) => ({ id: p.id, name: p.name, price: p.price, stock: p.stock, createdAt: p.createdAt, updatedAt: p.updatedAt });
+
+  function bindProduct(text) {
+    if (!text || !text.trim()) return { errors: { '': ['A non-empty request body is required.'] } };
+    let o;
+    try { o = JSON.parse(text); } catch { return { errors: { '$': ["The JSON value could not be parsed. Path: $ | LineNumber: 0 | BytePositionInLine: 0."] } }; }
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return { errors: { '$': ['The JSON value could not be converted to ProductApi.Models.ProductRequest. Path: $'] } };
+    const errors = {};
+    const get = (k) => { const hit = Object.keys(o).find((x) => x.toLowerCase() === k); return hit === undefined ? undefined : o[hit]; };
+    let name = get('name'), price = get('price'), stock = get('stock');
+    if (name !== undefined && name !== null && typeof name !== 'string') errors['$.name'] = ['The JSON value could not be converted to System.String. Path: $.name'];
+    if (price === undefined) price = 0; else if (typeof price !== 'number') errors['$.price'] = ['The JSON value could not be converted to System.Decimal. Path: $.price'];
+    if (stock === undefined) stock = 0; else if (typeof stock !== 'number' || !Number.isInteger(stock)) errors['$.stock'] = ['The JSON value could not be converted to System.Int32. Path: $.stock'];
+    if (Object.keys(errors).length) return { errors };
+    if (name == null || !String(name).trim()) errors.Name = ['The Name field is required.'];
+    else if (name.length > 100) errors.Name = ['The field Name must be a string with a maximum length of 100.'];
+    if (price < 0 || price > MAX_PRICE) errors.Price = ['The field Price must be between 0 and 99999999.99.'];
+    if (stock < 0 || stock > INT_MAX) errors.Stock = ['The field Stock must be between 0 and 2147483647.'];
+    return Object.keys(errors).length ? { errors } : { value: { name, price, stock } };
+  }
+
+  function api(method, path, bodyText) {
+    const http = `${method} ${path}`;
+    const m = /^\/api\/products(?:\/([^/?#]+))?\/?$/i.exec(path.trim());
+    const done = (status, body, exec, extra = {}) => { log({ src: 'API', method, http, status, exec }); return { status, body, exec, ...extra }; };
+    if (!m) return done(404, null, null, { note: '沒有符合的路由' });
+    let id = null;
+    if (m[1] !== undefined) {
+      const seg = decodeURIComponent(m[1]);
+      if (!/^-?\d+$/.test(seg) || Math.abs(Number(seg)) > INT_MAX) return done(404, null, null, { note: `「${seg}」不符合路由限制 {id:int}` });
+      id = Number(seg);
+    }
+    const allowed = id == null ? ['GET', 'POST'] : ['GET', 'PUT', 'DELETE'];
+    if (!allowed.includes(method)) return done(405, null, null, { note: `這個路徑只接受 ${allowed.join(', ')}` });
+
+    if (method === 'GET' && id == null) { const r = sp('LIST'); return done(200, r.rows.map((row) => json(db.products.find((p) => p.id === row[0]))), execText('LIST')); }
+    if (method === 'GET') { const r = sp('GET', { id }); const p = db.products.find((x) => x.id === id); return r.rows.length ? done(200, json(p), execText('GET', { id })) : done(404, problem(404, 'Not Found'), execText('GET', { id })); }
+    if (method === 'DELETE') { const ex = execText('DELETE', { id }); const r = sp('DELETE', { id }); return r.rows[0][0] > 0 ? done(204, null, ex) : done(404, problem(404, 'Not Found'), ex); }
+
+    const b = bindProduct(bodyText);
+    if (b.errors) return done(400, problem(400, 'One or more validation errors occurred.', { errors: b.errors }), null, { note: '[ApiController] 驗證失敗，Controller 和 SP 都沒有執行' });
+    const params = { ...b.value, id };
+    const ex = execText(method === 'POST' ? 'CREATE' : 'UPDATE', params);
+    const r = sp(method === 'POST' ? 'CREATE' : 'UPDATE', params);
+    if (r.error) return done(500, problem(500, 'An error occurred while processing your request.'), ex);
+    if (method === 'POST') return done(201, json(r.product), ex, { location: `/api/products/${r.product.id}` });
+    return r.rows.length ? done(200, json(r.product), ex) : done(404, problem(404, 'Not Found'), ex);
+  }
+
+  // ---------- 畫面 ----------
+  let flash = null, flashRow = null;
+  const NAV = [['products', '商品列表'], ['products/new', '新增商品'], ['-'], ['sp', 'SP 執行台'], ['injection', 'SQL Injection 對照'], ['api', 'API 測試台'], ['log', '執行紀錄']];
+
+  function shell(active, html) {
+    const nav = NAV.map(([href, label]) => {
+      if (href === '-') return '<div class="sep"></div>';
+      const on = href === active;
+      const pill = href === 'log' && db.log.length ? `<span class="pill">${db.log.length}</span>` : '';
+      return `<a href="#/${href}" class="${on ? 'is-on' : ''}"${on ? ' aria-current="page"' : ''}>${label}${pill}</a>`;
+    }).join('');
+    const f = flash ? `<div class="flash ${flash.bad ? 'bad' : 'ok'}" role="status">${flash.html}</div>` : '';
+    flash = null;
+    return `<div class="shell">
+      <aside class="rail">
+        <div class="brand"><div class="brand-mark">API</div><div><strong>ProductApi</strong><small>.NET 8 · SQL Server</small></div></div>
+        <nav aria-label="主選單">${nav}</nav>
+        <div class="rail-foot">每個動作都會記下<br>HTTP 請求與執行的 SP。</div>
+      </aside>
+      <main class="stage">${f}${html}</main></div>`;
+  }
+
+  function callItem(c) {
+    const st = c.status ? `<span class="st status s${String(c.status)[0]}">${c.status}</span>` : '';
+    const verb = c.src === 'API' ? `<span class="verb ${c.method}">${c.method}</span><span>${esc(c.http.slice(c.method.length + 1))}</span>` : '<span class="verb EXEC">EXEC</span><span>SP 執行台</span>';
+    const body = c.exec ? `<pre class="out">${esc(c.exec)}</pre>` : '<span class="skip">沒有呼叫 SP：在 API 層就被擋下</span>';
+    return `<li><div class="top">${verb}<span class="src">${clock(c.at).slice(11)}</span>${st}</div>${body}</li>`;
+  }
+
+  function pageProducts(q) {
+    const list = [...db.products].sort((a, b) => a.id - b.id);
+    const shown = q ? list.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())) : list;
+    const total = list.reduce((s, p) => s + p.stock, 0);
+    const value = list.reduce((s, p) => s + p.stock * p.price, 0);
+    const low = list.filter((p) => p.stock < LOW).length;
+    const rows = shown.map((p) => `<tr class="${p.stock < LOW ? 'row-low' : ''} ${p.id === flashRow ? 'row-flash' : ''}">
+      <td class="id" data-l="Id">${p.id}</td>
+      <td data-l="品名"><span>${esc(p.name)}<small>${p.updatedAt ? '更新 ' + clock(p.updatedAt) : '建立 ' + clock(p.createdAt)}</small></span></td>
+      <td class="num" data-l="單價">$${money(p.price)}</td>
+      <td class="num stock" data-l="庫存">${p.stock}</td>
+      <td data-l="操作"><span class="actions"><a class="btn ghost small" href="#/products/${p.id}/edit">編輯</a><button type="button" class="btn danger small" data-del="${p.id}">刪除</button></span></td></tr>`).join('');
+    flashRow = null;
+    return shell('products', `
+      <header class="page-head"><div><p class="eyebrow">GET /api/products</p><h1>商品列表</h1></div><div class="actions"><a class="btn" href="#/products/new">新增商品</a></div></header>
+      <section class="metrics">
+        <article><span>商品數</span><strong>${list.length}</strong></article>
+        <article><span>總庫存</span><strong>${total.toLocaleString('zh-TW')}</strong></article>
+        <article><span>庫存總值</span><strong>$${money(Math.round(value))}</strong></article>
+        <article class="${low ? 'warn' : ''}"><span>庫存低於 ${LOW}</span><strong>${low}</strong></article>
+      </section>
+      <div class="split">
+        <section class="panel">
+          <form class="toolbar" data-form="search"><input name="q" type="search" value="${esc(q)}" placeholder="搜尋品名…" aria-label="搜尋品名"><button class="btn ghost" type="submit">搜尋</button>${q ? '<a class="btn ghost" href="#/products">清除</a>' : ''}</form>
+          <div class="table-wrap"><table class="stack"><thead><tr><th>Id</th><th>品名</th><th class="num">單價</th><th class="num">庫存</th><th>操作</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="5" class="muted">${list.length ? '沒有符合的商品。' : '目前沒有資料，按「新增商品」建立第一筆。'}</td></tr>`}</tbody></table></div>
+          <p class="muted" style="font-size:.85rem;margin:.6rem 0 0">搜尋在前端過濾。刪除要按兩次確認。</p>
+        </section>
+        <section class="panel"><h2>最近的呼叫</h2>
+          <ul class="calls">${db.log.slice(0, 4).map(callItem).join('') || '<li class="muted">還沒有呼叫紀錄。</li>'}</ul>
+          ${db.log.length > 4 ? '<p style="margin:.6rem 0 0"><a href="#/log">看全部紀錄 →</a></p>' : ''}
+        </section>
+      </div>
+      <div class="source">對應程式：<a href="https://github.com/Tai-Ju/aspnetcore-sqlserver-sp-crud/blob/main/src/ProductApi/Controllers/ProductsController.cs">ProductsController.cs</a><a href="https://github.com/Tai-Ju/aspnetcore-sqlserver-sp-crud/blob/main/src/ProductApi/Data/ProductRepository.cs">ProductRepository.cs</a></div>`);
+  }
+
+  function formBody(v) {
+    const num = (s) => (String(s).trim() === '' ? null : (Number.isFinite(Number(s)) ? Number(s) : String(s)));
+    return JSON.stringify({ name: v.name, price: num(v.price), stock: num(v.stock) }, null, 2);
+  }
+
+  function pageForm(id, state) {
+    const p = id != null ? db.products.find((x) => x.id === id) : null;
+    if (id != null && !p) return shell('products', '<section class="panel"><h1>404</h1><p>找不到這個商品，可能已被刪除。</p><a href="#/products">回商品列表</a></section>');
+    const v = state?.values || (p ? { name: p.name, price: String(p.price), stock: String(p.stock) } : { name: '', price: '0', stock: '0' });
+    const e = state?.errors || {};
+    const errFor = (k) => Object.entries(e).filter(([key]) => key.replace('$.', '').toLowerCase() === k).flatMap(([, msgs]) => msgs);
+    const field = (k, label, attrs) => {
+      const msgs = errFor(k);
+      return `<label>${label}<input name="${k}" value="${esc(v[k])}" ${attrs} class="${msgs.length ? 'is-bad' : ''}"${msgs.length ? ` aria-invalid="true" aria-describedby="err-${k}"` : ''}></label>${msgs.length ? `<small class="err" id="err-${k}">${esc(msgs.join(' '))}</small>` : ''}`;
+    };
+    const other = Object.entries(e).filter(([k]) => !['name', 'price', 'stock'].includes(k.replace('$.', '').toLowerCase())).flatMap(([, m]) => m);
+    const method = p ? 'PUT' : 'POST', path = p ? `/api/products/${p.id}` : '/api/products';
+    return shell(p ? '' : 'products/new', `
+      <header class="page-head"><div><p class="eyebrow">${method} ${path}</p><h1>${p ? `編輯商品 #${p.id}` : '新增商品'}</h1></div></header>
+      <p class="lead muted">表單關掉了瀏覽器驗證，送出後由「API」回應。試試看品名留空、單價填負數，會收到 400 和 ASP.NET Core 格式的錯誤。</p>
+      <div class="split">
+        <form class="panel form" data-form="product" data-id="${p ? p.id : ''}" novalidate>
+          ${other.length ? `<div class="flash bad">${esc(other.join(' '))}</div>` : ''}
+          ${field('name', '品名 <span class="muted">（必填，最多 100 字）</span>', 'autocomplete="off"')}
+          <div class="row3">
+            <div class="form" style="gap:.3rem">${field('price', '單價', 'inputmode="decimal"')}</div>
+            <div class="form" style="gap:.3rem">${field('stock', '庫存', 'inputmode="numeric"')}</div>
+          </div>
+          <div class="actions"><button class="btn" type="submit">${p ? '儲存' : '建立商品'}</button><a class="btn ghost" href="#/products">取消</a></div>
+        </form>
+        <section class="panel"><p class="eyebrow">這次會送出的請求</p>
+          <p class="mono" style="margin:.2rem 0 .4rem"><span class="verb ${method}">${method}</span> ${path}</p>
+          <pre class="out" id="preview-body">${esc(formBody(v))}</pre>
+          <p class="eyebrow" style="margin-top:.8rem">驗證通過後 Repository 執行</p>
+          <pre class="out" id="preview-exec"></pre>
+        </section>
+      </div>`);
+  }
+
+  function updatePreview(form) {
+    const v = Object.fromEntries(new FormData(form));
+    const body = formBody(v);
+    $('#preview-body').textContent = body;
+    const b = bindProduct(body);
+    const id = form.dataset.id ? Number(form.dataset.id) : null;
+    $('#preview-exec').textContent = b.errors ? '-- 驗證不會通過，不會呼叫 SP' : execText(id != null ? 'UPDATE' : 'CREATE', { ...b.value, id });
+  }
+
+  let spState = { action: 'LIST', id: '', name: '', price: '', stock: '', tab: 'results', result: null };
+  function spParams(s) {
+    const out = {}, errs = [];
+    if (s.id.trim()) { if (!/^-?\d+$/.test(s.id.trim())) errs.push('Msg 8114, Level 16, State 1\nError converting data type varchar to int.'); else out.id = Number(s.id); }
+    if (s.name !== '') out.name = s.name;
+    if (s.price.trim()) { const n = Number(s.price); if (!Number.isFinite(n)) errs.push('Msg 8114, Level 16, State 5\nError converting data type varchar to numeric.'); else out.price = n; }
+    if (s.stock.trim()) { const n = Number(s.stock); if (!Number.isFinite(n)) errs.push('Msg 8114, Level 16, State 1\nError converting data type varchar to int.'); else out.stock = n; }
+    return { params: out, errs };
+  }
+  function pageSp() {
+    const s = spState;
+    const { params } = spParams(s);
+    const r = s.result;
+    let resultHtml = '<p class="muted">按「執行」看結果。</p>';
+    if (r) {
+      const grid = r.error ? '<p class="muted">沒有結果集。</p>' : (r.rows.length
+        ? `<div class="table-wrap"><table class="grid-out"><thead><tr><th></th>${r.cols.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${r.rows.map((row, i) => `<tr><td class="muted">${i + 1}</td>${row.map((c) => (c == null ? '<td class="null">NULL</td>' : `<td>${esc(c)}</td>`)).join('')}</tr>`).join('')}</tbody></table></div>`
+        : `<div class="table-wrap"><table class="grid-out"><thead><tr>${r.cols.map((c) => `<th>${c}</th>`).join('')}</tr></thead></table></div><p class="muted">0 列。</p>`);
+      const msg = r.error ? `<pre class="msg bad">${esc(r.error.text)}</pre>` : `<pre class="msg">Commands completed successfully.\n\nCompletion time: ${esc(r.at)}</pre>`;
+      resultHtml = `<div class="tabs" role="tablist"><button type="button" data-tab="results" class="${s.tab === 'results' ? 'is-on' : ''}">Results</button><button type="button" data-tab="messages" class="${s.tab === 'messages' ? 'is-on' : ''}">Messages${r.error ? ' ⚠' : ''}</button></div>${s.tab === 'results' ? grid : msg}`;
+    }
+    const opt = (a) => `<option ${s.action === a ? 'selected' : ''}>${a}</option>`;
+    return shell('sp', `
+      <header class="page-head"><div><p class="eyebrow">SQL Server · ProductDb</p><h1>SP 執行台</h1></div></header>
+      <p class="lead">繞過 API，直接執行預存程序，就像在 SSMS 裡下指令。少了 API 那層驗證，這裡能看到資料庫自己的防線：<code>NOT NULL</code>、<code>CHECK</code> 條件約束、型別轉換。留空的欄位等於不傳，SP 會用預設值 NULL。</p>
+      <div class="sp-grid">
+        <form class="panel form" data-form="sp">
+          <label>@Action<select name="action">${['LIST', 'GET', 'CREATE', 'UPDATE', 'DELETE', 'PURGE'].map(opt).join('')}</select></label>
+          <div class="row3"><label>@Id<input name="id" value="${esc(s.id)}" class="mono" autocomplete="off"></label><label>@Name<input name="name" value="${esc(s.name)}" autocomplete="off"></label>
+          <label>@Price<input name="price" value="${esc(s.price)}" class="mono" autocomplete="off"></label><label>@Stock<input name="stock" value="${esc(s.stock)}" class="mono" autocomplete="off"></label></div>
+          <div class="presets"><span class="muted" style="font-size:.85rem">試試：</span>
+            <button type="button" class="btn ghost small" data-preset="neg">負數價格</button>
+            <button type="button" class="btn ghost small" data-preset="null">UPDATE 不給品名</button>
+            <button type="button" class="btn ghost small" data-preset="unknown">不存在的 @Action</button>
+            <button type="button" class="btn ghost small" data-preset="overflow">價格溢位</button></div>
+          <pre class="code" id="sp-text">${esc(execText(s.action, params))}</pre>
+          <div class="actions"><button class="btn" type="submit">執行</button></div>
+        </form>
+        <section class="panel">${resultHtml}</section>
+      </div>
+      <div class="source">對應程式：<a href="https://github.com/Tai-Ju/aspnetcore-sqlserver-sp-crud/blob/main/database/01_schema_and_sp.sql">database/01_schema_and_sp.sql</a></div>`);
+  }
+
+  let injInput = '1 OR 1=1';
+  function judgeConcat(input) {
+    const ids = db.products.map((p) => p.id);
+    const t = input.trim();
+    let m;
+    if (/^\d+$/.test(t)) { const n = ids.includes(Number(t)) ? 1 : 0; return { n, cls: 'neutral', text: `正常輸入：刪除 ${n} 筆。這次沒事，但程式本身是有漏洞的。` }; }
+    if ((m = /^(\d+)\s+OR\s+(\d+)\s*=\s*(\d+)\s*(--.*)?$/i.exec(t)) && m[2] === m[3]) return { n: ids.length, cls: 'hit', text: `WHERE 條件永遠成立：<strong>${ids.length} 筆全部被刪除</strong>。` };
+    if (/;\s*DROP\s+TABLE/i.test(t)) return { n: ids.length, cls: 'hit', text: '分號後面接了第二道指令：<strong>整張 dbo.Products 被 DROP</strong>，連結構都沒了。' };
+    if (/^\d+\s+OR\s+/i.test(t)) return { n: null, cls: 'hit', text: '攻擊者可以任意改寫 WHERE 條件，刪掉哪些資料由他決定。' };
+    return { n: 0, cls: 'neutral', text: "Msg 102: Incorrect syntax near '…'. 這次寫錯了，但攻擊者可以一直試。" };
+  }
+  function pageInjection() {
+    const t = injInput;
+    const bad = judgeConcat(t);
+    const okRoute = /^-?\d+$/.test(t.trim());
+    const id = okRoute ? Number(t.trim()) : null;
+    const exists = okRoute && db.products.some((p) => p.id === id);
+    const concatSql = `DELETE FROM dbo.Products WHERE Id = ${t}`;
+    return shell('injection', `
+      <header class="page-head"><div><p class="eyebrow">Security</p><h1>SQL Injection 對照</h1></div></header>
+      <p class="lead">假設有人把刪除寫成字串拼接：<code>$"DELETE FROM dbo.Products WHERE Id = {id}"</code>。輸入要刪除的 Id，比較兩種寫法的結果。這頁只做模擬，不會動到你的示範資料。</p>
+      <section class="panel">
+        <form class="toolbar" data-form="inj"><label style="flex:1 1 260px">DELETE /api/products/<input name="v" value="${esc(t)}" class="mono" autocomplete="off" spellcheck="false"></label><button class="btn" type="submit">比較</button></form>
+        <div class="presets"><span class="muted" style="font-size:.85rem">範例：</span>${['1 OR 1=1', '0; DROP TABLE dbo.Products --', '2'].map((x) => `<button type="button" class="btn ghost small" data-inj="${esc(x)}">${esc(x)}</button>`).join('')}</div>
+        <div class="race">
+          <div class="lane bad"><h3>✗ 字串拼接</h3><div class="body">
+            <span class="muted">實際送到資料庫的 SQL：</span><pre class="out">${esc(concatSql)}</pre>
+            <div class="verdict ${bad.cls}">${bad.text}</div></div></div>
+          <div class="lane good"><h3>✓ 路由 {id:int} + SqlParameter + SP</h3><div class="body">
+            ${okRoute
+              ? `<span class="muted">輸入是整數，進到 Repository：</span><pre class="out">${esc(execText('DELETE', { id }))}</pre><div class="verdict safe">@Id 是 INT 參數，值只會被當成資料：最多刪除 1 筆（這次 ${exists ? 1 : 0} 筆）。</div>`
+              : `<span class="muted">路由比對：</span><pre class="out">"${esc(t)}" ≠ {id:int}\n→ 404 Not Found</pre><div class="verdict safe">網址不符合路由限制，Controller 和 SP 都沒有被呼叫，資料不變。</div>`}
+          </div></div>
+        </div>
+      </section>
+      <section class="panel"><h2>為什麼參數化擋得住</h2>
+        <p style="margin:0">SqlParameter 是分開送給 SQL Server 的，指令文字和值不會混在一起。不管值裡有 <code>OR</code>、分號還是 <code>--</code>，資料庫都只當成一個要比對的值，不會當成指令執行。再加上 <code>SqlDbType.Int</code>，非整數根本轉不過去。</p>
+      </section>`);
+  }
+
+  const PRESETS = [
+    ['列出全部', 'GET', '/api/products', ''],
+    ['查一筆', 'GET', '/api/products/1', ''],
+    ['新增', 'POST', '/api/products', '{\n  "name": "N95 口罩",\n  "price": 35,\n  "stock": 500\n}'],
+    ['修改', 'PUT', '/api/products/1', '{\n  "name": "口罩 (50入) 新包裝",\n  "price": 179,\n  "stock": 100\n}'],
+    ['刪除', 'DELETE', '/api/products/2', ''],
+    ['400：品名空白', 'POST', '/api/products', '{\n  "name": "",\n  "price": -5,\n  "stock": 10\n}'],
+    ['400：型別錯誤', 'POST', '/api/products', '{\n  "name": "棉棒",\n  "price": "便宜",\n  "stock": 1.5\n}'],
+    ['404：找不到', 'GET', '/api/products/999', ''],
+    ['404：路由不符', 'GET', '/api/products/abc', '']
+  ];
+  let apiState = { method: 'GET', path: '/api/products', body: '', res: null };
+  function curlFor(s) {
+    const hasBody = ['POST', 'PUT'].includes(s.method);
+    return `curl -X ${s.method} http://localhost:5020${s.path}${hasBody ? ` \\\n  -H "Content-Type: application/json" \\\n  -d '${s.body.replace(/\s*\n\s*/g, ' ').replace(/'/g, "'\\''")}'` : ''}`;
+  }
+  function pageApi() {
+    const s = apiState, r = s.res;
+    const out = r ? `<p style="margin:.2rem 0 .6rem"><span class="status s${String(r.status)[0]}">${r.status}</span>${r.location ? ` <span class="mono muted">Location: ${esc(r.location)}</span>` : ''}${r.note ? `<br><span class="muted" style="font-size:.88rem">${esc(r.note)}</span>` : ''}</p>
+      <pre class="out">${r.body == null ? '(no content)' : esc(JSON.stringify(r.body, null, 2))}</pre>
+      <p class="eyebrow" style="margin-top:.8rem">執行的 SP</p>${r.exec ? `<pre class="out">${esc(r.exec)}</pre>` : '<span class="skip">沒有呼叫 SP</span>'}`
+      : '<p class="muted">選一個範例或自己組請求，按「送出」。</p>';
+    return shell('api', `
+      <header class="page-head"><div><p class="eyebrow">REST API</p><h1>API 測試台</h1></div></header>
+      <div class="presets" style="margin-bottom:.8rem">${PRESETS.map((p, i) => `<button type="button" class="btn ghost small" data-api="${i}">${esc(p[0])}</button>`).join('')}</div>
+      <div class="api-grid">
+        <form class="panel form" data-form="api">
+          <div class="api-line"><select name="method" aria-label="HTTP 方法">${['GET', 'POST', 'PUT', 'DELETE'].map((m) => `<option ${m === s.method ? 'selected' : ''}>${m}</option>`).join('')}</select><input name="path" value="${esc(s.path)}" aria-label="路徑" spellcheck="false" autocomplete="off"></div>
+          <label>Request body（JSON，POST / PUT 用）<textarea name="body" class="json" spellcheck="false">${esc(s.body)}</textarea></label>
+          <div class="actions"><button class="btn" type="submit">送出</button></div>
+          <div><p class="eyebrow" style="margin-top:.4rem">等價 curl</p><div class="curl" id="api-curl">${esc(curlFor(s))}</div></div>
+        </form>
+        <section class="panel"><p class="eyebrow">Response</p>${out}</section>
+      </div>`);
+  }
+
+  function pageLog() {
+    return shell('log', `
+      <header class="page-head"><div><p class="eyebrow">Profiler</p><h1>執行紀錄</h1></div><div class="actions">${db.log.length ? '<button type="button" class="btn ghost small" data-act="clear-log">清除紀錄</button>' : ''}</div></header>
+      <p class="lead">每一次 API 請求、每一次 SP 執行都記在這裡，最新的在最上面。被擋在 API 層的請求不會有 EXEC。</p>
+      <section class="panel"><ul class="calls">${db.log.map(callItem).join('') || '<li class="muted">還沒有紀錄。到商品列表新增或修改一筆試試看。</li>'}</ul></section>`);
+  }
+
+  // ---------- 路由 ----------
+  function route() {
+    const raw = location.hash.replace(/^#\/?/, '') || 'products';
+    const [path, qs] = raw.split('?');
+    const params = new URLSearchParams(qs || '');
+    let m;
+    if (path === 'products') return pageProducts(params.get('q') || '');
+    if (path === 'products/new') return pageForm(null);
+    if ((m = /^products\/(\d+)\/edit$/.exec(path))) return pageForm(Number(m[1]));
+    if (path === 'sp') return pageSp();
+    if (path === 'injection') return pageInjection();
+    if (path === 'api') return pageApi();
+    if (path === 'log') return pageLog();
+    return shell('', '<section class="panel"><h1>找不到頁面</h1><a href="#/products">回商品列表</a></section>');
+  }
+  function render() {
+    $('#app').innerHTML = route();
+    const pf = document.querySelector('form[data-form="product"]');
+    if (pf) updatePreview(pf);
+  }
+  function go(hash, f) { if (f) flash = f; if (location.hash === hash) render(); else location.hash = hash; }
+
+  // ---------- 事件 ----------
+  document.addEventListener('submit', (ev) => {
+    const form = ev.target.closest('form[data-form]'); if (!form) return;
+    ev.preventDefault();
+    const kind = form.dataset.form;
+    const data = Object.fromEntries(new FormData(form));
+    if (kind === 'search') { go(`#/products${data.q.trim() ? `?q=${encodeURIComponent(data.q.trim())}` : ''}`); return; }
+    if (kind === 'product') {
+      const id = form.dataset.id ? Number(form.dataset.id) : null;
+      const r = api(id != null ? 'PUT' : 'POST', id != null ? `/api/products/${id}` : '/api/products', formBody(data));
+      if (r.status === 400) { $('#app').innerHTML = pageForm(id, { values: data, errors: r.body.errors }); updatePreview($('form[data-form="product"]')); return; }
+      if (r.status >= 400) { go('#/products', { bad: true, html: `操作失敗（${r.status}），這筆商品可能已被刪除。` }); return; }
+      flashRow = r.body.id;
+      go('#/products', { html: `${id != null ? '已更新' : '已新增'} <strong>#${r.body.id} ${esc(r.body.name)}</strong>（${r.status}）。<code>${esc(r.exec.split('\n')[0])} @Action = N'${id != null ? 'UPDATE' : 'CREATE'}', …</code>` });
+      return;
+    }
+    if (kind === 'sp') {
+      spState = { ...spState, ...data };
+      const { params, errs } = spParams(spState);
+      const text = execText(spState.action, params);
+      const res = errs.length ? { error: { text: errs[0] } } : sp(spState.action, params);
+      spState.result = { ...res, at: new Date().toLocaleString('zh-TW', { hour12: false }) };
+      spState.tab = res.error ? 'messages' : 'results';
+      log({ src: 'SP', method: 'EXEC', http: 'EXEC', status: null, exec: text });
+      render(); return;
+    }
+    if (kind === 'inj') { injInput = data.v; render(); return; }
+    if (kind === 'api') {
+      apiState = { ...apiState, ...data };
+      apiState.res = api(apiState.method, apiState.path, ['POST', 'PUT'].includes(apiState.method) ? apiState.body : '');
+      render();
+    }
+  });
+
+  document.addEventListener('input', (ev) => {
+    const form = ev.target.closest('form[data-form]'); if (!form) return;
+    if (form.dataset.form === 'product') updatePreview(form);
+    if (form.dataset.form === 'sp') {
+      const s = { ...spState, ...Object.fromEntries(new FormData(form)) };
+      $('#sp-text').textContent = execText(s.action, spParams(s).params);
+    }
+    if (form.dataset.form === 'api') {
+      const s = { ...apiState, ...Object.fromEntries(new FormData(form)) };
+      $('#api-curl').textContent = curlFor(s);
+    }
+  });
+  document.addEventListener('change', (ev) => { if (ev.target.name === 'action' || ev.target.name === 'method') ev.target.dispatchEvent(new Event('input', { bubbles: true })); });
+
+  document.addEventListener('click', (ev) => {
+    const el = ev.target.closest('button'); if (!el) return;
+    if (el.dataset.del) {
+      if (el.dataset.armed !== '1') { el.dataset.armed = '1'; el.textContent = '確定刪除？'; setTimeout(() => { if (el.isConnected) { el.dataset.armed = ''; el.textContent = '刪除'; } }, 2500); return; }
+      const id = Number(el.dataset.del);
+      const r = api('DELETE', `/api/products/${id}`, '');
+      go(location.hash || '#/products', r.status === 204 ? { html: `已刪除 #${id}（204 No Content）。` } : { bad: true, html: `刪除失敗（${r.status}）。` });
+      return;
+    }
+    if (el.dataset.tab) { spState.tab = el.dataset.tab; render(); return; }
+    if (el.dataset.preset) {
+      const P = { neg: { action: 'CREATE', id: '', name: '退燒貼片', price: '-20', stock: '10' }, null: { action: 'UPDATE', id: '1', name: '', price: '199', stock: '100' }, unknown: { action: 'PURGE', id: '', name: '', price: '', stock: '' }, overflow: { action: 'CREATE', id: '', name: '超貴設備', price: '123456789', stock: '1' } };
+      spState = { ...spState, ...P[el.dataset.preset], result: null }; render(); return;
+    }
+    if (el.dataset.inj !== undefined) { injInput = el.dataset.inj; render(); return; }
+    if (el.dataset.api !== undefined) { const [, method, path, body] = PRESETS[Number(el.dataset.api)]; apiState = { method, path, body, res: null }; render(); return; }
+    if (el.dataset.act === 'clear-log') { db.log = []; save(); render(); }
+  });
+
+  $('#reset-btn').addEventListener('click', () => { db = seed(); save(); spState.result = null; apiState.res = null; go('#/products', { html: '示範資料已重設。' }); });
+  window.addEventListener('hashchange', render);
+  render();
+})();
+</script>
+</body>
+</html>
