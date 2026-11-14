@@ -1,3 +1,4 @@
+# Deploys src/ProductApi/wwwroot (CRUD demo, demo mode without backend)
 name: Deploy demo to GitHub Pages
 
 on:
