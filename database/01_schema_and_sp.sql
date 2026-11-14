@@ -89,7 +89,7 @@ BEGIN
         DELETE FROM dbo.Products WHERE Id = @Id;
         SELECT @@ROWCOUNT AS AffectedRows;
         RETURN;
-    END
+    END;  -- THROW 的前一句必須以分號結尾
 
     THROW 50001, N'Unknown @Action. Use LIST / GET / CREATE / UPDATE / DELETE.', 1;
 END
