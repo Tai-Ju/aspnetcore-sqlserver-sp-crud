@@ -398,7 +398,7 @@ textarea.json { font-family: var(--mono); font-size: .82rem; min-height: 8rem; r
       <p class="lead muted">表單關掉了瀏覽器驗證，送出後由「API」回應。試試看品名留空、單價填負數，會收到 400 和 ASP.NET Core 格式的錯誤。</p>
       <div class="split">
         <form class="panel form" data-form="product" data-id="${p ? p.id : ''}" novalidate>
-          ${other.length ? `<div class="flash bad">${esc(other.join(' '))}</div>` : ''}
+          ${Object.keys(e).length ? `<div class="flash bad" role="alert"><span class="status s4">400 Bad Request</span>　API 驗證沒通過，Controller 和預存程序都沒有執行。${other.length ? '<br>' + esc(other.join(' ')) : ''}</div>` : ''}
           ${field('name', '品名 <span class="muted">（必填，最多 100 字）</span>', 'autocomplete="off"')}
           <div class="row3">
             <div class="form" style="gap:.3rem">${field('price', '單價', 'inputmode="decimal"')}</div>
